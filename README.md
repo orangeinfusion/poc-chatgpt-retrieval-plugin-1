@@ -26,43 +26,53 @@ This README provides detailed information on how to set up, develop, and deploy 
 
 ## Table of Contents
 
-- [Quickstart](#quickstart)
-- [About](#about)
-  - [Retrieval Plugin](#retrieval-plugin)
-  - [Retrieval Plugin with custom GPTs](#retrieval-plugin-with-custom-gpts)
-  - [Retrieval Plugin with function calling](#retrieval-plugin-with-function-calling)
-  - [Retrieval Plugin with the plugins model (deprecated)](#chatgpt-plugins-model)
-  - [API Endpoints](#api-endpoints)
-  - [Memory Feature](#memory-feature)
-  - [Security](#security)
-  - [Choosing an Embeddings Model](#choosing-an-embeddings-model)
-- [Development](#development)
-  - [Setup](#setup)
-    - [General Environment Variables](#general-environment-variables)
-  - [Choosing a Vector Database](#choosing-a-vector-database)
-    - [Pinecone](#pinecone)
-    - [Elasticsearch](#elasticsearch)
-    - [Weaviate](#weaviate)
-    - [Zilliz](#zilliz)
-    - [Milvus](#milvus)
-    - [Qdrant](#qdrant)
-    - [Redis](#redis)
-    - [Llama Index](#llamaindex)
-    - [Chroma](#chroma)
-    - [Azure Cognitive Search](#azure-cognitive-search)
-    - [Azure CosmosDB Mongo vCore](#azure-cosmosdb-mongo-vcore)
-    - [Supabase](#supabase)
-    - [Postgres](#postgres)
-    - [AnalyticDB](#analyticdb)
-  - [Running the API Locally](#running-the-api-locally)
-  - [Personalization](#personalization)
-  - [Authentication Methods](#authentication-methods)
-- [Deployment](#deployment)
-- [Webhooks](#webhooks)
-- [Scripts](#scripts)
-- [Limitations](#limitations)
-- [Contributors](#contributors)
-- [Future Directions](#future-directions)
+- [ChatGPT Retrieval Plugin](#chatgpt-retrieval-plugin)
+  - [Introduction](#introduction)
+  - [Table of Contents](#table-of-contents)
+  - [Quickstart](#quickstart)
+  - [About](#about)
+    - [Retrieval Plugin](#retrieval-plugin)
+    - [Retrieval Plugin with Custom GPTs](#retrieval-plugin-with-custom-gpts)
+    - [Retrieval Plugin with Function Calling](#retrieval-plugin-with-function-calling)
+      - [Function Calling with Chat Completions](#function-calling-with-chat-completions)
+      - [Function Calling with Assistants API](#function-calling-with-assistants-api)
+    - [ChatGPT Plugins Model](#chatgpt-plugins-model)
+    - [API Endpoints](#api-endpoints)
+    - [Memory Feature](#memory-feature)
+    - [Security](#security)
+    - [Choosing an Embeddings Model](#choosing-an-embeddings-model)
+  - [Development](#development)
+    - [Setup](#setup)
+      - [General Environment Variables](#general-environment-variables)
+    - [Using the plugin with Azure OpenAI](#using-the-plugin-with-azure-openai)
+    - [Choosing a Vector Database](#choosing-a-vector-database)
+      - [Pinecone](#pinecone)
+      - [Weaviate](#weaviate)
+      - [Zilliz](#zilliz)
+      - [Milvus](#milvus)
+      - [Qdrant](#qdrant)
+      - [Redis](#redis)
+      - [LlamaIndex](#llamaindex)
+      - [Chroma](#chroma)
+      - [Azure Cognitive Search](#azure-cognitive-search)
+      - [Azure CosmosDB Mongo vCore](#azure-cosmosdb-mongo-vcore)
+      - [Supabase](#supabase)
+      - [Postgres](#postgres)
+      - [AnalyticDB](#analyticdb)
+      - [Elasticsearch](#elasticsearch)
+    - [Running the API locally](#running-the-api-locally)
+    - [Personalization](#personalization)
+    - [Authentication Methods](#authentication-methods)
+  - [Deployment](#deployment)
+  - [Webhooks](#webhooks)
+  - [Scripts](#scripts)
+  - [Pull Request (PR) Checklist](#pull-request-pr-checklist)
+  - [Pull Request Naming Convention](#pull-request-naming-convention)
+  - [Limitations](#limitations)
+  - [Future Directions](#future-directions)
+  - [Contributors](#contributors)
+  - [Orange Infusion Specifics](#orange-infusion-specifics)
+    - [Demonstration Steps](#demonstration-steps)
 
 ## Quickstart
 
@@ -262,9 +272,9 @@ The plugin exposes the following endpoints for upserting, querying, and deleting
 
 - `/delete`: This endpoint allows deleting one or more documents from the vector database using their IDs, a metadata filter, or a delete_all flag. The endpoint expects at least one of the following parameters in the request body: `ids`, `filter`, or `delete_all`. The `ids` parameter should be a list of document IDs to delete; all document chunks for the document with these IDS will be deleted. The `filter` parameter should contain a subset of the following subfields: `source`, `source_id`, `document_id`, `url`, `created_at`, and `author`. The `delete_all` parameter should be a boolean indicating whether to delete all documents from the vector database. The endpoint returns a boolean indicating whether the deletion was successful.
 
-The detailed specifications and examples of the request and response models can be found by running the app locally and navigating to http://0.0.0.0:8000/openapi.json, or in the OpenAPI schema [here](/.well-known/openapi.yaml). Note that the OpenAPI schema only contains the `/query` endpoint, because that is the only function that ChatGPT needs to access. This way, ChatGPT can use the plugin only to retrieve relevant documents based on natural language queries or needs. However, if developers want to also give ChatGPT the ability to remember things for later, they can use the `/upsert` endpoint to save snippets from the conversation to the vector database. An example of a manifest and OpenAPI schema that gives ChatGPT access to the `/upsert` endpoint can be found [here](/examples/memory).
+The detailed specifications and examples of the request and response models can be found by running the app locally and navigating to <http://0.0.0.0:8000/openapi.json>, or in the OpenAPI schema [here](/.well-known/openapi.yaml). Note that the OpenAPI schema only contains the `/query` endpoint, because that is the only function that ChatGPT needs to access. This way, ChatGPT can use the plugin only to retrieve relevant documents based on natural language queries or needs. However, if developers want to also give ChatGPT the ability to remember things for later, they can use the `/upsert` endpoint to save snippets from the conversation to the vector database. An example of a manifest and OpenAPI schema that gives ChatGPT access to the `/upsert` endpoint can be found [here](/examples/memory).
 
-To include custom metadata fields, edit the `DocumentMetadata` and `DocumentMetadataFilter` data models [here](/models/models.py), and update the OpenAPI schema [here](/.well-known/openapi.yaml). You can update this easily by running the app locally, copying the JSON found at http://0.0.0.0:8000/sub/openapi.json, and converting it to YAML format with [Swagger Editor](https://editor.swagger.io/). Alternatively, you can replace the `openapi.yaml` file with an `openapi.json` file.
+To include custom metadata fields, edit the `DocumentMetadata` and `DocumentMetadataFilter` data models [here](/models/models.py), and update the OpenAPI schema [here](/.well-known/openapi.yaml). You can update this easily by running the app locally, copying the JSON found at <http://0.0.0.0:8000/sub/openapi.json>, and converting it to YAML format with [Swagger Editor](https://editor.swagger.io/). Alternatively, you can replace the `openapi.yaml` file with an `openapi.json` file.
 
 ### Memory Feature
 
@@ -451,7 +461,7 @@ Start the API with:
 poetry run start
 ```
 
-Append `docs` to the URL shown in the terminal and open it in a browser to access the API documentation and try out the endpoints (i.e. http://0.0.0.0:8000/docs). Make sure to enter your bearer token and test the API endpoints.
+Append `docs` to the URL shown in the terminal and open it in a browser to access the API documentation and try out the endpoints (i.e. <http://0.0.0.0:8000/docs>). Make sure to enter your bearer token and test the API endpoints.
 
 **Note:** If you add new dependencies to the pyproject.toml file, you need to run `poetry lock` and `poetry install` to update the lock file and install the new dependencies.
 
@@ -631,3 +641,89 @@ We would like to extend our gratitude to the following contributors for their co
   - [mmmaia](https://github.com/mmmaia)
 - [Elasticsearch](https://www.elastic.co/)
   - [joemcelroy](https://github.com/joemcelroy)
+
+## Orange Infusion Specifics
+
+### Demonstration Steps
+
+1. Clone the repository from GitHub:
+
+```shell
+git clone https://github.com/orangeinfusion/poc-chatgpt-retrieval-plugin-1.git
+```
+
+2. [Install poetry](https://python-poetry.org/docs/#installation) if you have not already.
+3. Navigate to the cloned repository directory & install dependencies:
+
+```shell
+cd /path/to/poc-chatgpt-retrieval-plugin-1
+poetry install
+```
+
+4. [Install](https://supabase.com/docs/guides/cli/getting-started) the supabase-cli if you have not already.
+5. Run supabase locally from the project. This will pull all docker images and run supabase stack in docker on your local machine. It will also apply all the necessary migrations to set the whole thing up. _Make note of the environment variables_. Please also note that the embedding vectors were changed from 256 to 3072 in the migration script. Navigate to the `examples/providers` folder in the project and run the following command:
+
+```shell
+cd examples/providers
+supabase start
+```
+
+6. Setup an __OpenAI API__ account if you have not done so and [create an API key](https://platform.openai.com/docs/quickstart?context=python). Please note, you will likely have to add credits to use this service. You will run into issues with the rest of this Demo if you do not have credits.
+7. Export your environemnt variables:
+
+```shell
+export OPENAI_API_KEY=<open_ai_api_key>
+export DATASTORE=supabase
+export SUPABASE_URL=<supabase_url>                # Note: API Url from local
+export SUPABASE_SERVICE_ROLE_KEY=<supabase_key>
+```
+
+8. _Return to the project root_. Run the dev app locally:
+
+```shell
+cd /path/to/poc-chatgpt-retrieval-plugin-1
+poetry run dev
+Warning: 'dev' is an entry point defined in pyproject.toml, but it's not installed as a script. You may get improper `sys.argv[0]`.
+
+The support to run uninstalled scripts will be removed in a future release.
+
+Run `poetry install` to resolve and get rid of this message.
+
+INFO:     Will watch for changes in these directories: ['/Users/godel/Projects/procrastinate/poc-chatgpt-retrieval-plugin-1']
+INFO:     Uvicorn running on http://localhost:3333 (Press CTRL+C to quit)
+INFO:     Started reloader process [74668] using WatchFiles
+INFO:     Started server process [74739]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+```
+
+9. [Download](https://www.postgresql.org/files/documentation/pdf/15/postgresql-15-US.pdf) the postgresql documentation pdf file to use as a sample document for testing & populate data in the data store on local stack. Locate the file downloaded, and in another terminal tab run the following:
+
+```shell
+curl -X POST -F "file=@/Users/you/Downloads/postgresql-15-US.pdf" http://localhost:3333/upsert-file
+{"ids":["c15bd888-4d35-46e2-89ce-7e39f4e7d1fe"]}%       # Note this takes a while to finish - 7096 rows
+```
+
+10. Run the following POST to receive the results *sent to GPT* for something like a plugin in ChatGPT:
+
+```shell
+curl --location 'http://localhost:3333/query' \
+--header 'Content-Type: application/json' \
+--data '{
+    "queries": [
+        {
+            "query": "when to use CHECK constraint"
+        },
+        {
+            "query": "when to use USING clause"
+        }
+    ]
+}'
+```
+
+11. Shut down the (Fast)API by running ctrl-c in the terminal where the FastAPI is running. Then, shutdown local supabase instance by running the following command in the terminal:
+
+```shell
+cd examples/providers
+supabase stop
+```
